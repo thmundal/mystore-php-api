@@ -96,17 +96,26 @@ Class myStoreAPI {
 
 		if($input["method"] == "post") {
 			curl_setopt($handle, CURLOPT_POST, true);
-			// TODO: Need to create a datapattern for the different post data types
 			$data = $this->buildData($type, $args);
 			curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
 		}
 		$result = "test";
 
 		$result = curl_exec($handle);
-//		echo curl_error($handle);
+
+		if(!$result) {
+			// cURL error
+			throw new MystoreAPI_exception("cURL error: ".curl_error($handle));
+		}
+
 		curl_close($handle);
 
-		return $this->response($result);
+		// Translate JSON
+		$r = $this->response($result);
+
+		// Check for errors
+		$this->error($r);
+		return $r;
 	}
 
 	/**
@@ -115,8 +124,9 @@ Class myStoreAPI {
 	 * @return void
 	 */
 	private function error($response) {
-		if($response->code != "200" AND isset($response->error))
+		if(property_exists($response, "error") AND $response->code != 200) {
 			throw new MystoreAPI_exception("Error ".$response->code."<br />".$response->error->message);
+		}
 	}
 
 	/**
