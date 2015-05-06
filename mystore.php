@@ -1,4 +1,10 @@
 <?php
+/**
+ * API Interface for mystore.no written for PHP
+ * 
+ * @author Thomas Mundal <thmundal@gmail.com>
+ * @version 0.1.0
+ * */
 
 Class myStoreAPI {
 	private $api_key;
@@ -73,6 +79,12 @@ Class myStoreAPI {
 		$this->store_url = $store_url;
 	}
 
+	/**
+	 * Executes the API http-request
+	 * @param string $type 
+	 * @param Array $args 
+	 * @return Array The JSON decoded response from the server
+	 */
 	public function api($type, Array $args) {
 		$input = $this->type($type);
 		$options = [];
@@ -97,21 +109,42 @@ Class myStoreAPI {
 		return $this->response($result);
 	}
 
+	/**
+	 * Throws an exception if the response returned with an error and not a 200 code
+	 * @param Array $response 
+	 * @return void
+	 */
 	private function error($response) {
 		if($response->code != "200" AND isset($response->error))
 			throw new MystoreAPI_exception("Error ".$response->code."<br />".$response->error->message);
 	}
 
+	/**
+	 * Decodes the JSON information from the response into a usable PHP array
+	 * @param string $data The input JSON string
+	 * @return Array The output PHP Array
+	 */
 	private function response($data) {
 		return json_decode($data);
 	}
 
+	/**
+	 * Returns the appropriate API request header information for use in the request adding the API key to the URL and the custom store URL if present
+	 * @param sting $type The type of API request
+	 * @return Array The output API header information
+	 */
 	private function type($type) {
 		$t = $this->api_map[$type];
 		$t["url"] = $this->store_url . $t["url"] . "?api_key=".$this->api_key;
 		return $t;
 	}
 
+	/**
+	 * Validates and builds the post-data needed for API requests trough post
+	 * @param string $type The type of API request
+	 * @param Array $input_data The input data-array
+	 * @return Array The generated data-array ready for posting to the server
+	 */
 	private function buildData($type, $input_data) {
 		if(!array_key_exists("data_structure", $this->api_map[$type]))
 			return;
