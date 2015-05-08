@@ -19,14 +19,14 @@ Class myStoreAPI {
 
 		// Proucts
 	 	"get_all_products" => [
-	 		"metehod" => "get",
+	 		"method" => "get",
 			"url" => "products.json"],
 	   	"get_products_in_category" => [
 	   		"method" => "get",
 	   		"url" => "products/:category_id.json"],
    		"products_text_search" => [
    			"method" => "get",
-			"url" => "products/search/:keyword.json"],
+			"url" => "products/search/gent.json"],
 		"create_update_product" => [
 			"method" => "post",
 			"url" => "products/create_or_update.json",
@@ -85,7 +85,7 @@ Class myStoreAPI {
 	 * @param Array $args 
 	 * @return Array The JSON decoded response from the server
 	 */
-	public function api($type, Array $args) {
+	public function api($type, Array $args = []) {
 		$input = $this->type($type);
 		$options = [];
 
