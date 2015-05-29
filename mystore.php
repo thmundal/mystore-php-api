@@ -4,9 +4,13 @@
  * 
  * @author Thomas Mundal <thmundal@gmail.com>
  * @version 0.1.0
- * */
+ * @todo: Fully implement memcached support for large amounts of data
+ **/
 
 Class myStoreAPI {
+    private $memcached = false;
+    private $cache_object;
+    
 	private $api_key;
 	private $store_url;
 
@@ -30,7 +34,9 @@ Class myStoreAPI {
 		"create_update_product" => [
 			"method" => "post",
 			"url" => "products/create_or_update.json",
-			"data_structure" => ["product_data" => true]],
+			"data_structure" => ["product_data" => 
+                                    ["products_images" => "array",
+                                      "products_description" => "string"]]],
 		"update_stock_by_model" =>  [
 			"method" => "post",
 			"url" => "products/update_stock_by_model.json",
@@ -75,9 +81,42 @@ Class myStoreAPI {
 	];
 
 	public function __construct($api_key, $store_url = "https://mystore-api.no/") {
-		$this->api_key = $api_key;
-		$this->store_url = $store_url;
+        if(class_exists('Memcached')) {
+            // Memcached setup
+            $this->memcached = new Memcached();
+            $this->memcached->addServer("localhost", 11211);
+        }
+        
+		$this->set("api_key", $api_key);
+		$this->set("store_url", $store_url);
 	}
+    
+    /**
+     *  Save a member-value, and put it in memcached if present
+     *  @param string $name The name of the variable
+     *  @param mixed $value The value of the variable
+     *  @return void;
+     */
+    public function set($name, $value) {
+        if($this->memcached !== false) {
+            $this->memcached->set("MystoreApiCache_".$name, $value);
+        } else {
+            $this->name = $value;
+        }
+    }
+    
+    /**
+     *  Extract a member-value from memcached if present, or directly from the class if memcached is not installed
+     *  @param string $name The name of the variable to extract
+     *  @return mixed The value of the extracted variable
+     */
+    public function get($name) {
+        if($this->memcached !== false) {
+            return $this->memcached->get("MystoreApiCache_".$name);
+        } else {
+            return $this->$name;
+        }
+    }
 
 	/**
 	 * Executes the API http-request
@@ -99,7 +138,6 @@ Class myStoreAPI {
 			$data = $this->buildData($type, $args);
 			curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
 		}
-		$result = "test";
 
 		$result = curl_exec($handle);
 
@@ -116,6 +154,26 @@ Class myStoreAPI {
 		// Check for errors
 		$this->error($r);
 		return $r;
+	}
+
+	public function test($type, Array $args = []) {
+	  $input = $this->type($type);
+	  $options = [];
+
+	  $request = [];
+	  $request["url"] = $input["url"];
+
+      echo sizeof($args["product_data"]);
+	  if($input["method"] = "post") {
+	    $request["data"] = $this->buildData($type, $args);
+	  }
+      //pre_print_r("Data length: ".strlen($request["data"]["product_data"]));
+      
+      $test = json_decode($request["data"]["product_data"]);
+      if(sizeof($test) == sizeof($args["product_data"]));
+        pre_print_r("All tests passed!");
+      
+	  return $request;
 	}
 
 	/**
@@ -145,7 +203,7 @@ Class myStoreAPI {
 	 */
 	private function type($type) {
 		$t = $this->api_map[$type];
-		$t["url"] = $this->store_url . $t["url"] . "?api_key=".$this->api_key;
+		$t["url"] = $this->get("store_url") . $t["url"] . "?api_key=".$this->get("api_key");
 		return $t;
 	}
 
@@ -164,13 +222,21 @@ Class myStoreAPI {
 		$output_data = [];
 
 		foreach($data_struct as $key => $value) {
-			if($value == true) {
+			if($value === true) {
 				if(!array_key_exists($key, $input_data))
 					throw new MystoreAPI_exception("Missing required key ".$key." on request for ".$type);
-			}
+			} elseif(is_array($value)) {
+                foreach($value as $typekey => $typevalue) {
+                    for($i=0; $i<sizeof($input_data[$key]); $i++) {
+                        if(strtolower(gettype($input_data[$key][$i][$typekey])) !== strtolower($typevalue)) {
+                            throw new MystoreAPI_exception("Wrong datatype for ".$typekey.". Excepcted type is ".$typevalue." but got ".gettype($input_data[$key][$i][$typekey]));
+                        }
+                    }
+                }
+            }
 
 			if(array_key_exists($key, $input_data)) {
-				$output_data[$key] = json_encode($input_data[$key]);
+			  $output_data[$key] = json_encode($input_data[$key]);
 			}
 		}
 
@@ -179,7 +245,12 @@ Class myStoreAPI {
 }
 
 Class MystoreAPI_exception extends Exception {
-
+    public function __toString() {
+        ob_end_clean();
+        echo "<pre>" . __CLASS__ . ": " . $this->getMessage() . " | file: " .$this->getFile() . " line: " . $this->getLine() . "\n" . $this->getTraceAsString()."</pre>";
+        exit;
+        return "";
+    }
 }
 
 ?>
